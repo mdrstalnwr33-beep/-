@@ -1,28 +1,15 @@
-import { router } from 'expo-router';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Text } from 'react-native';
+import { lessons } from '../src/data';
+import { Card, Page, Section, Action, styles, C } from '../src/ui';
 
 export default function LessonsScreen() {
-  return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        <Pressable onPress={() => router.back()}><Text style={styles.back}>رجوع ›</Text></Pressable>
-        <Text style={styles.title}>الدروس اليومية</Text>
-        <View style={styles.card}>
-          <Text style={styles.icon}>📖</Text>
-          <Text style={styles.heading}>درس اليوم</Text>
-          <Text style={styles.text}>سيتم تنظيم الدروس حسب المادة والصف مع واجهة قراءة مستقرة ومحتوى قابل للتحديث.</Text>
-        </View>
-      </View>
-    </SafeAreaView>
-  );
+  const p = useLocalSearchParams<{ subject?: string; grade?: string; role?: string }>();
+  const list = lessons.filter(x => (!p.subject || x.subject === p.subject) && (!p.grade || x.grade === p.grade));
+  return <Page title="الدروس اليومية" subtitle="شرح ومراجعة العلوم" onBack={() => router.back()}>
+    <Section title={p.subject ? `دروس ${p.subject}` : 'الدروس المتاحة'}>
+      {list.map(l => <Card key={l.id}><Text style={{fontSize:17,fontWeight:'900',color:C.navy,textAlign:'right'}}>{l.title}</Text><Text style={{color:C.muted,textAlign:'right',marginTop:5}}>{l.grade} • {l.date}</Text><Text style={{color:C.text,textAlign:'right',lineHeight:22,marginTop:10}}>{l.body}</Text><Action label="قراءة الدرس" icon="📖" onPress={() => router.push({pathname:'/lesson',params:{id:l.id,subject:l.subject,grade:l.grade}})} /></Card>)}
+      {!list.length && <Card><Text style={{textAlign:'center',color:C.muted}}>لا توجد دروس لهذا الصف والمادة بعد.</Text></Card>}
+    </Section>
+  </Page>;
 }
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f4f7fb' },
-  container: { padding: 20 },
-  back: { color: '#356ae6', fontWeight: '800', marginBottom: 18, textAlign: 'right' },
-  title: { fontSize: 27, fontWeight: '900', color: '#14213d', textAlign: 'right', marginBottom: 20 },
-  card: { backgroundColor: '#fff', borderRadius: 22, padding: 26, alignItems: 'center', elevation: 2 },
-  icon: { fontSize: 46 },
-  heading: { fontSize: 20, fontWeight: '900', color: '#14213d', marginTop: 10 },
-  text: { color: '#667085', textAlign: 'center', lineHeight: 24, marginTop: 10 }
-});
