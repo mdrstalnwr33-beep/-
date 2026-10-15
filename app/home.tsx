@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { subjects, grades } from '../src/data';
 import { getCloudStudent } from '../src/cloud';
-import { getSession } from '../src/storage';
 import { clearSession, getSession } from '../src/storage';
 
 const teacherTools = [
