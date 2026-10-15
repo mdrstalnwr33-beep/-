@@ -8,7 +8,7 @@ const studentServices = [
   { route: '/homework', icon: '✓', title: 'الواجبات المدرسية', note: 'حل وإرسال للمعلم' },
   { route: '/exams', icon: '📝', title: 'الاختبارات الشهرية', note: 'اختبارات وتقييم مستمر' },
   { route: '/results', icon: '★', title: 'درجات الطالب', note: 'نتائج الاختبارات والواجبات' },
-  { route: '/profile', icon: '👤', title: 'الملف الشخصي', note: 'بيانات الحساب والمرحلة' },
+  { route: '/about-teacher', icon: '👨‍🏫', title: 'عن المعلم محمد القاضي', note: 'نبذة عن المعلم والمنصة' },
 ];
 const teacherServices = [
   { route: '/homework', icon: '📥', title: 'مراجعة الواجبات', note: 'استلام وتصحيح واجبات الطلاب' },
@@ -16,7 +16,7 @@ const teacherServices = [
   { route: '/books', icon: '📚', title: 'إدارة الكتب', note: 'الكتب والملازم التعليمية' },
   { route: '/lessons', icon: '📖', title: 'إدارة الدروس', note: 'الدروس اليومية والشروحات' },
   { route: '/results', icon: '📊', title: 'الدرجات', note: 'نتائج ومتابعة الطلاب' },
-  { route: '/profile', icon: '👥', title: 'ملف المعلم', note: 'بيانات الحساب' },
+  { route: '/about-teacher', icon: '👨‍🏫', title: 'عن المعلم محمد القاضي', note: 'بيانات المعلم والمنصة' },
 ];
 
 export default function HomeScreen() {
@@ -29,7 +29,7 @@ export default function HomeScreen() {
   const openSubject = (subject: string) => router.push({ pathname: '/books', params: { subject, grade, role, name } });
 
   return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-    <View style={styles.header}><Pressable style={styles.avatar} onPress={() => go('/profile')}><Text style={styles.avatarText}>{role === 'teacher' ? '👨‍🏫' : '👨‍🎓'}</Text></Pressable><View style={styles.headerText}><Text style={styles.eyebrow}>مرحبًا {name}</Text><Text style={styles.title}>تطبيق القاضي للعلوم</Text><Text style={styles.school}>{role === 'teacher' ? 'لوحة المعلم' : `${grade} • منصة العلوم`}</Text></View></View>
+    <View style={styles.header}><Pressable style={styles.avatar} onPress={() => go('/about-teacher')}><Text style={styles.avatarText}>{role === 'teacher' ? '👨‍🏫' : '👨‍🎓'}</Text></Pressable><View style={styles.headerText}><Text style={styles.eyebrow}>مرحبًا {name}</Text><Text style={styles.title}>تطبيق القاضي للعلوم</Text><Text style={styles.school}>{role === 'teacher' ? 'لوحة المعلم' : `${grade} • منصة العلوم`}</Text></View></View>
     <View style={styles.banner}><View style={styles.bannerIcon}><Text style={styles.bannerEmoji}>🔬</Text></View><View style={styles.bannerCopy}><Text style={styles.bannerTitle}>{role === 'teacher' ? 'إدارة التعليم بسهولة' : 'تعلم العلوم بوضوح وتميّز'}</Text><Text style={styles.bannerText}>{role === 'teacher' ? 'أنشئ المحتوى والاختبارات وتابع تسليمات الطلاب ودرجاتهم.' : 'الكيمياء والفيزياء والأحياء مع الكتب والدروس والواجبات والاختبارات.'}</Text></View></View>
     <Text style={styles.section}>المواد العلمية</Text>
     {subjects.map(s => <Pressable key={s.name} style={styles.subjectCard} onPress={() => openSubject(s.name)}><Text style={styles.arrow}>‹</Text><View style={styles.subjectText}><Text style={styles.subjectTitle}>{s.name}</Text><Text style={styles.note}>{s.description}</Text></View><View style={styles.iconBox}><Text style={styles.icon}>{s.icon}</Text></View></Pressable>)}
