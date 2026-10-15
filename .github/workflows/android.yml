@@ -47,6 +47,15 @@ jobs:
       - name: Build release APK
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon --build-cache
+      - name: Measure APK
+        shell: bash
+        run: |
+          APK=$(find android/app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)
+          test -n "$APK"
+          echo "APK_PATH=$APK"
+          stat -c 'APK_BYTES=%s' "$APK"
+          ls -lh "$APK"
+          sha256sum "$APK"
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
