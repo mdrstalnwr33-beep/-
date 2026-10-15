@@ -5,36 +5,78 @@ import { grades } from '../src/data';
 import { getSession, setSession } from '../src/storage';
 
 function gradeFromCode(code: string) {
-  const c = code.trim().toLowerCase();
-  if (c.startsWith('1') || c.startsWith('a') || c.includes('اول')) return grades[0];
-  if (c.startsWith('2') || c.startsWith('b') || c.includes('ثاني')) return grades[1];
-  if (c.startsWith('3') || c.startsWith('c') || c.includes('ثالث')) return grades[2];
+  if (code.startsWith('1')) return grades[0];
+  if (code.startsWith('2')) return grades[1];
+  if (code.startsWith('3')) return grades[2];
   return undefined;
+}
+
+function normalizeCode(value: string) {
+  return value.replace(/\D/g, '').slice(0, 6);
 }
 
 export default function LoginScreen() {
   const p = useLocalSearchParams<{ role?: string }>();
   const [role, setRole] = useState<'student' | 'teacher'>(p.role === 'teacher' ? 'teacher' : 'student');
-  const [name, setName] = useState('');
   const [code, setCode] = useState('');
+
   const enter = async () => {
-    if (!name.trim() || !code.trim()) return Alert.alert('بيانات ناقصة', 'اكتب الاسم ورمز الدخول.');
-    const grade = role === 'teacher' ? grades[0] : gradeFromCode(code);
-    if (role === 'student' && !grade) return Alert.alert('رمز غير معروف', 'رمز الطالب يحدد الصف تلقائيًا. استخدم رمزًا يبدأ بـ 1 أو 2 أو 3.');
-    const session = { role, name: name.trim(), code: code.trim(), grade: grade || grades[0], active: true } as const;
+    if (!/^\d{6}$/.test(code)) {
+      return Alert.alert('كود غير صحيح', 'يجب أن يتكون كود الدخول من ستة أرقام فقط.');
+    }
+
+    const grade = role === 'student' ? gradeFromCode(code) : grades[0];
+    if (role === 'student' && !grade) {
+      return Alert.alert('كود غير صحيح', 'كود الطالب غير مرتبط بصف مسجل.');
+    }
+
     const old = await getSession();
-    if (old && old.code === session.code && old.active === false) return Alert.alert('الحساب موقوف', 'لا يمكن الدخول بهذا الحساب.');
+    if (old && old.code === code && old.active === false) {
+      return Alert.alert('الحساب موقوف', 'لا يمكن الدخول بهذا الحساب.');
+    }
+
+    const name = role === 'teacher' ? 'المعلم' : 'الطالب';
+    const session = { role, name, code, grade: grade || grades[0], active: true } as const;
     await setSession(session);
-    router.replace({ pathname: '/home', params: { role, name: session.name, grade: session.grade, code: session.code } });
+    router.replace({ pathname: '/home', params: { role, name, grade: session.grade, code } });
   };
+
   return <SafeAreaView style={styles.safe}><View style={styles.container}>
-    <View style={styles.brand}><View style={styles.logo}><Text style={styles.logoText}>ع</Text></View><Text style={styles.title}>تسجيل الدخول</Text><Text style={styles.subtitle}>تطبيق القاضي للعلوم</Text></View>
-    <View style={styles.card}><Text style={styles.label}>نوع الحساب</Text><View style={styles.roles}><Pressable style={[styles.role,role==='student'&&styles.active]} onPress={()=>setRole('student')}><Text style={styles.roleText}>👨‍🎓 الطالب</Text></Pressable><Pressable style={[styles.role,role==='teacher'&&styles.active]} onPress={()=>setRole('teacher')}><Text style={styles.roleText}>👨‍🏫 المعلم</Text></Pressable></View>
-    <Text style={styles.label}>الاسم</Text><TextInput value={name} onChangeText={setName} placeholder={role==='student'?'اسم الطالب':'اسم المعلم'} placeholderTextColor="#98a2b3" style={styles.input} textAlign="right" />
-    <Text style={styles.label}>{role==='student'?'كود التسجيل':'كود المعلم'}</Text><TextInput value={code} onChangeText={setCode} placeholder={role==='student'?'الكود يحدد الصف تلقائيًا':'أدخل كود المعلم'} placeholderTextColor="#98a2b3" style={styles.input} textAlign="right" secureTextEntry={role==='teacher'} />
-    {role==='student'&&<Text style={styles.hint}>يتم توجيهك تلقائيًا إلى الصف المرتبط بالكود، ولا يظهر لك أي صف آخر.</Text>}
-    <Pressable style={styles.button} onPress={enter}><Text style={styles.buttonText}>دخول إلى المنصة</Text></Pressable></View>
-    <Pressable onPress={()=>router.back()}><Text style={styles.back}>رجوع</Text></Pressable>
+    <View style={styles.header}>
+      <Pressable onPress={() => router.back()}><Text style={styles.arrow}>→</Text></Pressable>
+      <Text style={styles.title}>{role === 'student' ? 'دخول الطالب' : 'دخول المعلم'}</Text>
+    </View>
+    <View style={styles.avatar}><Text style={styles.avatarText}>●</Text></View>
+    <View style={styles.card}>
+      <Text style={styles.label}>{role === 'student' ? 'كود الطالب' : 'كود المعلم'}</Text>
+      <TextInput
+        value={code}
+        onChangeText={(v) => setCode(normalizeCode(v))}
+        placeholder="أدخل الكود المكوّن من 6 أرقام"
+        placeholderTextColor="#6b7280"
+        style={styles.input}
+        textAlign="right"
+        keyboardType="number-pad"
+        inputMode="numeric"
+        maxLength={6}
+        secureTextEntry
+      />
+      <Pressable style={styles.button} onPress={enter}><Text style={styles.buttonText}>دخول</Text></Pressable>
+    </View>
   </View></SafeAreaView>;
 }
-const styles=StyleSheet.create({safe:{flex:1,backgroundColor:'#f4f7fb'},container:{flex:1,justifyContent:'center',padding:20},brand:{alignItems:'center',marginBottom:22},logo:{width:66,height:66,borderRadius:20,backgroundColor:'#17324d',alignItems:'center',justifyContent:'center'},logoText:{color:'#fff',fontSize:38,fontWeight:'900'},title:{fontSize:27,fontWeight:'900',color:'#17324d',marginTop:12},subtitle:{color:'#667085',marginTop:4},card:{backgroundColor:'#fff',borderRadius:23,padding:20,borderWidth:1,borderColor:'#dce4ea'},label:{fontSize:14,fontWeight:'800',color:'#344054',textAlign:'right',marginBottom:7,marginTop:5},roles:{flexDirection:'row-reverse',gap:9,marginBottom:8},role:{flex:1,borderWidth:1,borderColor:'#d0d5dd',borderRadius:13,paddingVertical:13,alignItems:'center'},active:{backgroundColor:'#eef4f8',borderColor:'#2f6f9f'},roleText:{fontWeight:'800',color:'#344054'},input:{borderWidth:1,borderColor:'#d0d5dd',borderRadius:13,padding:13,fontSize:16,color:'#101828'},hint:{fontSize:12,color:'#667085',textAlign:'right',lineHeight:19,marginTop:8},button:{backgroundColor:'#17324d',borderRadius:14,paddingVertical:15,alignItems:'center',marginTop:16},buttonText:{color:'#fff',fontSize:17,fontWeight:'900'},back:{textAlign:'center',color:'#356ae6',fontWeight:'800',marginTop:16}});
+
+const styles = StyleSheet.create({
+  safe:{flex:1,backgroundColor:'#fbf8ff'},
+  container:{flex:1,paddingHorizontal:37,paddingTop:40},
+  header:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between'},
+  arrow:{fontSize:39,color:'#202020',fontWeight:'300'},
+  title:{fontSize:38,fontWeight:'800',color:'#171717'},
+  avatar:{alignItems:'center',marginTop:125,marginBottom:60},
+  avatarText:{fontSize:72,color:'#202020'},
+  card:{width:'100%'},
+  label:{fontSize:26,fontWeight:'700',color:'#303038',textAlign:'right',marginBottom:12},
+  input:{height:122,borderWidth:2,borderColor:'#85828a',borderRadius:7,paddingHorizontal:24,fontSize:23,color:'#222',backgroundColor:'#fbf8ff'},
+  button:{height:103,borderRadius:55,backgroundColor:'#5966a0',alignItems:'center',justifyContent:'center',marginTop:56},
+  buttonText:{fontSize:28,color:'#fff',fontWeight:'600'},
+});
