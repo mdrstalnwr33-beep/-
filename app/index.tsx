@@ -8,7 +8,7 @@ export default function Index() {
   useEffect(() => { getSession().then(s => { if (s?.active) router.replace({ pathname: '/home', params: { role: s.role, name: s.name, grade: s.grade, code: s.code } }); else setChecking(false); }); }, []);
   if (checking) return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.title}>تطبيق القاضي للعلوم</Text><Text style={styles.note}>جارٍ استعادة الجلسة…</Text></View></SafeAreaView>;
   return <SafeAreaView style={styles.safe}><View style={styles.container}>
-    <View style={styles.brand}><View style={styles.logo}><Text style={styles.logoText}>ع</Text></View><Text style={styles.title}>تطبيق القاضي للعلوم</Text><Text style={styles.subtitle}>الكيمياء • الفيزياء • الأحياء</Text></View>
+    <View style={styles.brand}><Pressable onLongPress={()=>router.push({pathname:'/login',params:{role:'teacher'}})} delayLongPress={900} style={styles.logo}><Text style={styles.logoText}>ع</Text></Pressable><Text style={styles.title}>تطبيق القاضي للعلوم</Text><Text style={styles.subtitle}>الكيمياء • الفيزياء • الأحياء</Text></View>
     <Pressable style={styles.primary} onPress={() => router.push({ pathname: '/login', params: { role: 'student' } })}><Text style={styles.primaryText}>👨‍🎓  دخول الطالب</Text></Pressable>
     <Pressable style={styles.about} onPress={() => router.push('/about-teacher')}><Text style={styles.aboutText}>عن الأستاذ محمد القاضي</Text></Pressable>
   </View></SafeAreaView>;
