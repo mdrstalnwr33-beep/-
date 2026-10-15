@@ -1,28 +1,6 @@
-import { router } from 'expo-router';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Text } from 'react-native';
+import { exams } from '../src/data';
+import { Action, Card, Page, Section, C } from '../src/ui';
 
-export default function ExamsScreen() {
-  return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        <Pressable onPress={() => router.back()}><Text style={styles.back}>رجوع ›</Text></Pressable>
-        <Text style={styles.title}>الاختبارات الشهرية</Text>
-        <View style={styles.card}>
-          <Text style={styles.icon}>📝</Text>
-          <Text style={styles.heading}>اختبارات منظمة حسب الصف والمادة</Text>
-          <Text style={styles.text}>ستضاف الأسئلة، الوقت، التسليم النهائي، ومحاولة الطالب الواحدة في المرحلة الخاصة بالاختبارات.</Text>
-        </View>
-      </View>
-    </SafeAreaView>
-  );
-}
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f4f7fb' },
-  container: { padding: 20 },
-  back: { color: '#356ae6', fontWeight: '800', marginBottom: 18, textAlign: 'right' },
-  title: { fontSize: 27, fontWeight: '900', color: '#14213d', textAlign: 'right', marginBottom: 20 },
-  card: { backgroundColor: '#fff', borderRadius: 22, padding: 26, alignItems: 'center', elevation: 2 },
-  icon: { fontSize: 46 },
-  heading: { fontSize: 20, fontWeight: '900', color: '#14213d', textAlign: 'center', marginTop: 10 },
-  text: { color: '#667085', textAlign: 'center', lineHeight: 24, marginTop: 10 }
-});
+export default function ExamsScreen(){ const p=useLocalSearchParams<{role?:string;name?:string;grade?:string;subject?:string}>(); const list=exams.filter(e=>(!p.subject||e.subject===p.subject)&&(!p.grade||e.grade===p.grade)); const teacher=p.role==='teacher'; return <Page title="الاختبارات الشهرية" subtitle={teacher?'إدارة الاختبارات ونتائج الطلاب':'اختبر فهمك للمادة'} onBack={()=>router.back()}><Section title={teacher?'الاختبارات المنشورة':'الاختبارات المتاحة'}>{list.map(e=><Card key={e.id}><Text style={{fontSize:17,fontWeight:'900',color:C.navy,textAlign:'right'}}>{e.title}</Text><Text style={{color:C.muted,textAlign:'right',marginTop:5}}>{e.subject} • {e.grade} • {e.duration} دقيقة • {e.questions.length} أسئلة</Text><Action label={teacher?'عرض الاختبار':'بدء الاختبار'} icon="📝" onPress={()=>router.push({pathname:'/exam',params:{id:e.id,role:p.role,name:p.name,grade:p.grade}})} /></Card>)}{!list.length&&<Card><Text style={{textAlign:'center',color:C.muted}}>لا توجد اختبارات لهذا الاختيار.</Text></Card>}</Section></Page>; }
