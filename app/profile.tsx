@@ -2,7 +2,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { grades } from '../src/data';
-import { deleteCloudStudent, getCloudTeacherCode, saveCloudStudent, setCloudTeacherCode } from '../src/cloud';
+import { deleteCloudStudent, getCloudTeacherCode, releaseStudentDevice, saveCloudStudent, setCloudTeacherCode } from '../src/cloud';
+import { getDeviceId } from '../src/device';
 import { clearSession, readJson, storageKeys, writeJson, type HonorEntry, type LocalStudent } from '../src/storage';
 
 function gradePrefix(grade:string){return grade===grades[0]?'1':grade===grades[1]?'2':'3';}
@@ -22,7 +23,7 @@ export default function ProfileScreen(){
  const editCode=async(s:LocalStudent)=>{const code=makeStudentCode(s.grade,students.filter(x=>x.id!==s.id).map(x=>x.code));const updated={...s,code};await saveStudents(students.map(x=>x.id===s.id?updated:x));try{await deleteCloudStudent(s.code);await saveCloudStudent(updated)}catch{Alert.alert('تنبيه','تم تغيير الكود محليًا، وتعذر مزامنته الآن.')}Alert.alert('تم تعديل الكود',`${s.name}\nالكود الجديد: ${code}`)};
  const saveTeacherCode=async()=>{if(!/^\d{6}$/.test(newTeacherCode))return Alert.alert('كود غير صحيح','رمز المعلم يجب أن يتكون من ستة أرقام فقط.');await writeJson('teacher-code',newTeacherCode);setTeacherCode(newTeacherCode);try{await setCloudTeacherCode(newTeacherCode);Alert.alert('تم الحفظ','تم تغيير كود المعلم ومزامنته مع السحابة.')}catch{Alert.alert('تم الحفظ محليًا','تعذر مزامنة كود المعلم مع السحابة الآن.')}};
  const generateTeacherCode=async()=>{const code=makeTeacherCode();setNewTeacherCode(code);await writeJson('teacher-code',code);setTeacherCode(code);try{await setCloudTeacherCode(code)}catch{}Alert.alert('كود المعلم الجديد',code)};
- const logout=async()=>{await clearSession();router.replace('/')};
+ const logout=async()=>{try{const session=await import('../src/storage').then(m=>m.getSession());if(session?.role==='student')await releaseStudentDevice(session.code,await getDeviceId())}catch{}await clearSession();router.dismissAll();router.replace('/')};
  const honor=honors.filter(x=>x.grade===grade&&(!x.subject||x.subject===undefined));
  if(teacher&&p.view==='honor')return <PageLike title={`لوحة الشرف • ${grade}`} onBack={()=>router.back()}><Pressable style={styles.primary} onPress={()=>Alert.alert('الترتيب التلقائي','سيتم احتساب المراكز من درجات الواجبات والاختبارات عند اكتمال مزامنة النتائج.') }><Text style={styles.primaryText}>🏆 تحديث الترتيب</Text></Pressable>{honor.length?honor.sort((a,b)=>a.position-b.position).map(x=><View key={`${x.name}-${x.position}`} style={styles.card}><Text style={styles.rank}>{x.position===1?'🥇':x.position===2?'🥈':'🥉'} {x.name}</Text><Text style={styles.note}>الدرجة: {x.score}</Text></View>):<View style={styles.card}><Text style={styles.note}>لا توجد نتائج منشورة بعد.</Text></View>}</PageLike>;
  return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.container}><Pressable onPress={()=>router.back()}><Text style={styles.back}>رجوع ›</Text></Pressable><Text style={styles.title}>{teacher?`إدارة ${grade}`:'الملف الشخصي'}</Text>
