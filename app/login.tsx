@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { grades } from '../src/data';
 import { getCloudStudent, getCloudTeacherCode } from '../src/cloud';
@@ -12,9 +12,8 @@ export default function LoginScreen(){
  const p=useLocalSearchParams<{role?:string}>();
  const role=p.role==='teacher'?'teacher':'student';
  const [code,setCode]=useState(''); const [busy,setBusy]=useState(false);
- const [students,setStudents]=useState<LocalStudent[]>([]);
- const [teacherCode,setTeacherCode]=useState(INITIAL_TEACHER_CODE);
- useState(()=>{readJson<LocalStudent[]>(storageKeys.students,[]).then(setStudents);readJson<string>('teacher-code',INITIAL_TEACHER_CODE).then(v=>setTeacherCode(/^\d{6}$/.test(v)?v:INITIAL_TEACHER_CODE));});
+ const [students,setStudents]=useState<LocalStudent[]>([]); const [teacherCode,setTeacherCode]=useState(INITIAL_TEACHER_CODE);
+ useEffect(()=>{readJson<LocalStudent[]>(storageKeys.students,[]).then(setStudents);readJson<string>('teacher-code',INITIAL_TEACHER_CODE).then(v=>setTeacherCode(/^\d{6}$/.test(v)?v:INITIAL_TEACHER_CODE));},[]);
  const enter=async()=>{
   if(!/^\d{6}$/.test(code))return Alert.alert('كود غير صحيح','يجب أن يتكون كود الدخول من ستة أرقام فقط.');
   setBusy(true);
