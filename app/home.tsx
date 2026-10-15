@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { subjects, grades } from '../src/data';
 import { getCloudStudent } from '../src/cloud';
+import { getSession } from '../src/storage';
 import { clearSession, getSession } from '../src/storage';
 
 const teacherTools = [
@@ -26,14 +27,16 @@ export default function HomeScreen() {
   const name = p.name || (role==='teacher' ? 'المعلم' : 'الطالب');
   useFocusEffect(useCallback(()=>{
     let cancelled=false;
-    if(role==='student' && p.code){
-      getCloudStudent(p.code).then(student=>{
-        if(cancelled)return;
-        if(!student || !student.active){
-          clearSession().then(()=>{Alert.alert('تم إيقاف الحساب','تم إيقاف هذا الطالب من قبل المعلم.');router.replace('/')});
-        }
-      }).catch(()=>{ /* إبقاء الجلسة عند انقطاع الإنترنت */ });
-    }
+    (async()=>{
+      const session=await getSession();
+      if(cancelled)return;
+      if(!session){router.dismissAll();router.replace('/');return;}
+      if(session.code!==p.code || session.role!==role){router.dismissAll();router.replace({pathname:'/home',params:{role:session.role,name:session.name,grade:session.grade,code:session.code}});return;}
+      if(role==='student' && p.code){
+        try{const student=await getCloudStudent(p.code);if(cancelled)return;if(!student || !student.active){await clearSession();router.dismissAll();Alert.alert('تم إيقاف الحساب','تم إيقاف هذا الطالب من قبل المعلم.');router.replace('/');}}
+        catch{/* إبقاء الجلسة المحلية عند انقطاع الإنترنت؛ يعاد التحقق عند عودة الاتصال/فتح الشاشة */}
+      }
+    })();
     return ()=>{cancelled=true};
   },[role,p.code]));
   const go = (route:string, extra:any={}) => router.push({ pathname: route as never, params:{ role,name,grade,code:p.code,...extra } });
