@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Alert, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { grades } from '../src/data';
 import { getCloudStudent, getCloudTeacherCode } from '../src/cloud';
 import { readJson, setSession, storageKeys, type LocalStudent } from '../src/storage';
@@ -10,10 +10,11 @@ const normalizeCode=(value:string)=>value.replace(/\D/g,'').slice(0,6);
 
 export default function LoginScreen(){
  const p=useLocalSearchParams<{role?:string}>();
- const [role,setRole]=useState<'student'|'teacher'>(p.role==='teacher'?'teacher':'student');
+ const role=p.role==='teacher'?'teacher':'student';
  const [code,setCode]=useState(''); const [busy,setBusy]=useState(false);
- const [students,setStudents]=useState<LocalStudent[]>([]); const [teacherCode,setTeacherCode]=useState(INITIAL_TEACHER_CODE);
- useEffect(()=>{readJson<LocalStudent[]>(storageKeys.students,[]).then(setStudents);readJson<string>('teacher-code',INITIAL_TEACHER_CODE).then(v=>setTeacherCode(/^\d{6}$/.test(v)?v:INITIAL_TEACHER_CODE));},[]);
+ const [students,setStudents]=useState<LocalStudent[]>([]);
+ const [teacherCode,setTeacherCode]=useState(INITIAL_TEACHER_CODE);
+ useState(()=>{readJson<LocalStudent[]>(storageKeys.students,[]).then(setStudents);readJson<string>('teacher-code',INITIAL_TEACHER_CODE).then(v=>setTeacherCode(/^\d{6}$/.test(v)?v:INITIAL_TEACHER_CODE));});
  const enter=async()=>{
   if(!/^\d{6}$/.test(code))return Alert.alert('كود غير صحيح','يجب أن يتكون كود الدخول من ستة أرقام فقط.');
   setBusy(true);
@@ -34,16 +35,15 @@ export default function LoginScreen(){
    router.replace({pathname:'/home',params:{role:'student',name:student.name,grade:student.grade,code:student.code}});
   }finally{setBusy(false)}
  };
- return <SafeAreaView style={styles.safe}><View style={styles.container}>
+ return <SafeAreaView style={styles.safe}><KeyboardAvoidingView style={styles.flex} behavior={Platform.OS==='ios'?'padding':'height'} keyboardVerticalOffset={Platform.OS==='ios'?10:25}><ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
   <View style={styles.header}><Pressable onPress={()=>router.back()}><Text style={styles.arrow}>→</Text></Pressable><Text style={styles.title}>{role==='student'?'دخول الطالب':'دخول المعلم'}</Text></View>
   <View style={styles.avatar}><Text style={styles.avatarText}>●</Text></View>
   <View style={styles.card}>
-   <View style={styles.roles}><Pressable style={[styles.role,role==='student'&&styles.active]} onPress={()=>setRole('student')}><Text style={styles.roleText}>👨‍🎓 الطالب</Text></Pressable><Pressable style={[styles.role,role==='teacher'&&styles.active]} onPress={()=>setRole('teacher')}><Text style={styles.roleText}>👨‍🏫 المعلم</Text></Pressable></View>
    <Text style={styles.label}>{role==='student'?'كود الطالب':'كود المعلم'}</Text>
    <TextInput value={code} onChangeText={v=>setCode(normalizeCode(v))} placeholder="أدخل 6 أرقام" placeholderTextColor="#6b7280" style={styles.input} textAlign="center" keyboardType="number-pad" inputMode="numeric" maxLength={6} secureTextEntry/>
    <Text style={styles.hint}>الكود مكوّن من 6 أرقام فقط ولا يحتوي على حروف.</Text>
    <Pressable disabled={busy} style={[styles.button,busy&&{opacity:.6}]} onPress={enter}><Text style={styles.buttonText}>{busy?'جارٍ التحقق...':'دخول'}</Text></Pressable>
   </View>
- </View></SafeAreaView>;
+ </ScrollView></KeyboardAvoidingView></SafeAreaView>;
 }
-const styles=StyleSheet.create({safe:{flex:1,backgroundColor:'#fbf8ff'},container:{flex:1,paddingHorizontal:37,paddingTop:40},header:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between'},arrow:{fontSize:39,color:'#202020',fontWeight:'300'},title:{fontSize:38,fontWeight:'800',color:'#171717'},avatar:{alignItems:'center',marginTop:95,marginBottom:42},avatarText:{fontSize:72,color:'#202020'},card:{width:'100%'},roles:{flexDirection:'row-reverse',gap:8,marginBottom:24},role:{flex:1,borderWidth:1,borderColor:'#aaa',borderRadius:12,paddingVertical:12,alignItems:'center'},active:{backgroundColor:'#eef1ff',borderColor:'#5966a0'},roleText:{fontWeight:'800',color:'#303038'},label:{fontSize:26,fontWeight:'700',color:'#303038',textAlign:'right',marginBottom:12},input:{height:122,borderWidth:2,borderColor:'#85828a',borderRadius:7,paddingHorizontal:24,fontSize:23,color:'#222',backgroundColor:'#fbf8ff'},hint:{fontSize:12,color:'#6b7280',textAlign:'right',marginTop:9},button:{height:103,borderRadius:55,backgroundColor:'#5966a0',alignItems:'center',justifyContent:'center',marginTop:35},buttonText:{fontSize:28,color:'#fff',fontWeight:'600'}});
+const styles=StyleSheet.create({flex:{flex:1},safe:{flex:1,backgroundColor:'#fbf8ff'},scroll:{flexGrow:1,paddingHorizontal:37,paddingTop:40,paddingBottom:35,justifyContent:'center'},header:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between'},arrow:{fontSize:39,color:'#202020',fontWeight:'300'},title:{fontSize:38,fontWeight:'800',color:'#171717'},avatar:{alignItems:'center',marginTop:55,marginBottom:42},avatarText:{fontSize:72,color:'#202020'},card:{width:'100%'},label:{fontSize:26,fontWeight:'700',color:'#303038',textAlign:'right',marginBottom:12},input:{height:105,borderWidth:2,borderColor:'#85828a',borderRadius:7,paddingHorizontal:24,fontSize:23,color:'#222',backgroundColor:'#fbf8ff'},hint:{fontSize:12,color:'#6b7280',textAlign:'right',marginTop:9},button:{height:88,borderRadius:48,backgroundColor:'#5966a0',alignItems:'center',justifyContent:'center',marginTop:28},buttonText:{fontSize:28,color:'#fff',fontWeight:'600'}});
