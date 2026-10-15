@@ -2,15 +2,11 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { grades } from '../src/data';
+import { deleteCloudStudent, getCloudTeacherCode, saveCloudStudent, setCloudTeacherCode } from '../src/cloud';
 import { clearSession, readJson, storageKeys, writeJson, type HonorEntry, type LocalStudent } from '../src/storage';
 
 function gradePrefix(grade:string){return grade===grades[0]?'1':grade===grades[1]?'2':'3';}
-function makeStudentCode(grade:string, existing:string[]){
-  const prefix=gradePrefix(grade);
-  let code='';
-  do { code=prefix+Math.floor(10000+Math.random()*90000).toString(); } while(existing.includes(code));
-  return code;
-}
+function makeStudentCode(grade:string, existing:string[]){const prefix=gradePrefix(grade);let code='';do{code=prefix+Math.floor(10000+Math.random()*90000).toString()}while(existing.includes(code));return code;}
 function makeTeacherCode(){return Math.floor(100000+Math.random()*900000).toString();}
 
 export default function ProfileScreen(){
@@ -18,17 +14,17 @@ export default function ProfileScreen(){
  const teacher=p.role==='teacher'; const grade=p.stage||p.grade||grades[0];
  const [students,setStudents]=useState<LocalStudent[]>([]); const [honors,setHonors]=useState<HonorEntry[]>([]); const [newName,setNewName]=useState('');
  const [teacherCode,setTeacherCode]=useState(''); const [newTeacherCode,setNewTeacherCode]=useState('');
- useEffect(()=>{readJson<LocalStudent[]>(storageKeys.students,[]).then(setStudents);readJson<HonorEntry[]>(storageKeys.honors,[]).then(setHonors);readJson<string>('teacher-code','').then(code=>{setTeacherCode(code);setNewTeacherCode(code)})},[]);
+ useEffect(()=>{(async()=>{const [ss,hh,localCode]=await Promise.all([readJson<LocalStudent[]>(storageKeys.students,[]),readJson<HonorEntry[]>(storageKeys.honors,[]),readJson<string>('teacher-code','')]);setStudents(ss);setHonors(hh);setTeacherCode(localCode);setNewTeacherCode(localCode);try{const cloudCode=await getCloudTeacherCode();if(cloudCode){setTeacherCode(cloudCode);setNewTeacherCode(cloudCode);await writeJson('teacher-code',cloudCode)}}catch{}})()},[]);
  const saveStudents=async(next:LocalStudent[])=>{setStudents(next);await writeJson(storageKeys.students,next)};
- const addStudent=async()=>{if(!newName.trim())return;const existing=students.map(s=>s.code);const code=makeStudentCode(grade,existing);const next=[...students,{id:Date.now().toString(),name:newName.trim(),code,grade,active:true}];await saveStudents(next);setNewName('');Alert.alert('تم إنشاء الكود',`${newName.trim()}\nكود التسجيل: ${code}`)};
- const toggle=async(s:LocalStudent)=>saveStudents(students.map(x=>x.id===s.id?{...x,active:!x.active}:x));
- const remove=async(s:LocalStudent)=>saveStudents(students.filter(x=>x.id!==s.id));
- const editCode=async(s:LocalStudent)=>{const code=makeStudentCode(s.grade,students.filter(x=>x.id!==s.id).map(x=>x.code));await saveStudents(students.map(x=>x.id===s.id?{...x,code}:x));Alert.alert('تم تعديل الكود',`${s.name}\nالكود الجديد: ${code}`)};
- const saveTeacherCode=async()=>{if(!/^\d{6}$/.test(newTeacherCode))return Alert.alert('كود غير صحيح','رمز المعلم يجب أن يتكون من ستة أرقام فقط.');await writeJson('teacher-code',newTeacherCode);setTeacherCode(newTeacherCode);Alert.alert('تم الحفظ','تم تغيير كود المعلم.')};
- const generateTeacherCode=async()=>{const code=makeTeacherCode();await writeJson('teacher-code',code);setTeacherCode(code);setNewTeacherCode(code);Alert.alert('كود المعلم الجديد',code)};
+ const addStudent=async()=>{if(!newName.trim())return;const existing=students.map(s=>s.code);const code=makeStudentCode(grade,existing);const student={id:Date.now().toString(),name:newName.trim(),code,grade,active:true};const next=[...students,student];await saveStudents(next);try{await saveCloudStudent(student)}catch{Alert.alert('تم محليًا','تم إنشاء الطالب على هذا الجهاز، لكن تعذر رفعه للسحابة الآن.')}setNewName('');Alert.alert('تم إنشاء الكود',`${student.name}\nكود التسجيل: ${code}`)};
+ const toggle=async(s:LocalStudent)=>{const updated={...s,active:!s.active};await saveStudents(students.map(x=>x.id===s.id?updated:x));try{await saveCloudStudent(updated)}catch{Alert.alert('تنبيه','تم تغيير الحالة محليًا، وتعذر مزامنتها الآن.')}};
+ const remove=async(s:LocalStudent)=>{await saveStudents(students.filter(x=>x.id!==s.id));try{await deleteCloudStudent(s.code)}catch{Alert.alert('تنبيه','تم حذف الطالب من هذا الجهاز، وتعذر حذفه من السحابة الآن.')}};
+ const editCode=async(s:LocalStudent)=>{const code=makeStudentCode(s.grade,students.filter(x=>x.id!==s.id).map(x=>x.code));const updated={...s,code};await saveStudents(students.map(x=>x.id===s.id?updated:x));try{await deleteCloudStudent(s.code);await saveCloudStudent(updated)}catch{Alert.alert('تنبيه','تم تغيير الكود محليًا، وتعذر مزامنته الآن.')}Alert.alert('تم تعديل الكود',`${s.name}\nالكود الجديد: ${code}`)};
+ const saveTeacherCode=async()=>{if(!/^\d{6}$/.test(newTeacherCode))return Alert.alert('كود غير صحيح','رمز المعلم يجب أن يتكون من ستة أرقام فقط.');await writeJson('teacher-code',newTeacherCode);setTeacherCode(newTeacherCode);try{await setCloudTeacherCode(newTeacherCode);Alert.alert('تم الحفظ','تم تغيير كود المعلم ومزامنته مع السحابة.')}catch{Alert.alert('تم الحفظ محليًا','تعذر مزامنة كود المعلم مع السحابة الآن.')}};
+ const generateTeacherCode=async()=>{const code=makeTeacherCode();setNewTeacherCode(code);await writeJson('teacher-code',code);setTeacherCode(code);try{await setCloudTeacherCode(code)}catch{}Alert.alert('كود المعلم الجديد',code)};
  const logout=async()=>{await clearSession();router.replace('/')};
- const honor=honors.filter(x=>x.grade===grade&&(!p.view||p.view==='honor')&&(!x.subject||x.subject===undefined));
- if(teacher&&p.view==='honor') return <PageLike title={`لوحة الشرف • ${grade}`} onBack={()=>router.back()}><Pressable style={styles.primary} onPress={()=>Alert.alert('الترتيب التلقائي','سيتم حساب المراكز 1 و2 و3 تلقائيًا من الواجبات والاختبارات بعد تفعيل المزامنة السحابية.')}><Text style={styles.primaryText}>🏆 تحديث الترتيب تلقائيًا</Text></Pressable>{honor.length?honor.sort((a,b)=>a.position-b.position).map(x=><View key={`${x.name}-${x.position}`} style={styles.card}><Text style={styles.rank}>{x.position===1?'🥇':x.position===2?'🥈':'🥉'} {x.name}</Text><Text style={styles.note}>الدرجة: {x.score}</Text></View>):<View style={styles.card}><Text style={styles.note}>لا توجد نتائج منشورة بعد.</Text></View>}</PageLike>;
+ const honor=honors.filter(x=>x.grade===grade&&(!x.subject||x.subject===undefined));
+ if(teacher&&p.view==='honor')return <PageLike title={`لوحة الشرف • ${grade}`} onBack={()=>router.back()}><Pressable style={styles.primary} onPress={()=>Alert.alert('الترتيب التلقائي','سيتم احتساب المراكز من درجات الواجبات والاختبارات عند اكتمال مزامنة النتائج.') }><Text style={styles.primaryText}>🏆 تحديث الترتيب</Text></Pressable>{honor.length?honor.sort((a,b)=>a.position-b.position).map(x=><View key={`${x.name}-${x.position}`} style={styles.card}><Text style={styles.rank}>{x.position===1?'🥇':x.position===2?'🥈':'🥉'} {x.name}</Text><Text style={styles.note}>الدرجة: {x.score}</Text></View>):<View style={styles.card}><Text style={styles.note}>لا توجد نتائج منشورة بعد.</Text></View>}</PageLike>;
  return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.container}><Pressable onPress={()=>router.back()}><Text style={styles.back}>رجوع ›</Text></Pressable><Text style={styles.title}>{teacher?`إدارة ${grade}`:'الملف الشخصي'}</Text>
  {teacher&&<>
  <View style={styles.card}><Text style={styles.heading}>🔐 كود المعلم</Text><TextInput value={newTeacherCode} onChangeText={v=>setNewTeacherCode(v.replace(/\D/g,'').slice(0,6))} keyboardType="number-pad" maxLength={6} placeholder="6 أرقام" style={styles.input} textAlign="center"/><View style={styles.row}><Pressable style={styles.primarySmall} onPress={saveTeacherCode}><Text style={styles.primaryText}>حفظ الكود</Text></Pressable><Pressable style={styles.secondarySmall} onPress={generateTeacherCode}><Text style={styles.secondaryText}>توليد كود</Text></Pressable></View>{teacherCode&&<Text style={styles.note}>الكود الحالي: {teacherCode}</Text>}</View>
