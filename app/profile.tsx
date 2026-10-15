@@ -1,15 +1,26 @@
-import { router } from 'expo-router';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { grades } from '../src/data';
+import { clearSession, getSession, readJson, storageKeys, writeJson, type HonorEntry, type LocalStudent } from '../src/storage';
 
-export default function ProfileScreen() {
-  return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        <Pressable onPress={() => router.back()}><Text style={styles.back}>رجوع ›</Text></Pressable>
-        <Text style={styles.title}>الملف الشخصي</Text>
-        <View style={styles.card}><Text style={styles.avatar}>👤</Text><Text style={styles.name}>حساب المستخدم</Text><Text style={styles.note}>سيتم ربط بيانات الحساب والمستوى الدراسي بالمصادقة في المرحلة القادمة.</Text></View>
-      </View>
-    </SafeAreaView>
-  );
+export default function ProfileScreen(){
+ const p=useLocalSearchParams<{role?:string;name?:string;grade?:string;view?:string;stage?:string}>();
+ const teacher=p.role==='teacher'; const grade=p.stage||p.grade||grades[0];
+ const [students,setStudents]=useState<LocalStudent[]>([]); const [honors,setHonors]=useState<HonorEntry[]>([]); const [newName,setNewName]=useState('');
+ useEffect(()=>{readJson<LocalStudent[]>(storageKeys.students,[]).then(setStudents);readJson<HonorEntry[]>(storageKeys.honors,[]).then(setHonors)},[]);
+ const saveStudents=async(next:LocalStudent[])=>{setStudents(next);await writeJson(storageKeys.students,next)};
+ const addStudent=async()=>{if(!newName.trim())return;const prefix=grade===grades[0]?'1':grade===grades[1]?'2':'3';const code=prefix+Math.random().toString(36).slice(2,7).toUpperCase();const next=[...students,{id:Date.now().toString(),name:newName.trim(),code,grade,active:true}];await saveStudents(next);setNewName('');Alert.alert('تم إنشاء الكود',`${newName.trim()}\nكود التسجيل: ${code}`)};
+ const toggle=async(s:LocalStudent)=>saveStudents(students.map(x=>x.id===s.id?{...x,active:!x.active}:x));
+ const remove=async(s:LocalStudent)=>saveStudents(students.filter(x=>x.id!==s.id));
+ const editCode=async(s:LocalStudent)=>{const prefix=grade===grades[0]?'1':grade===grades[1]?'2':'3';const code=prefix+Math.random().toString(36).slice(2,7).toUpperCase();await saveStudents(students.map(x=>x.id===s.id?{...x,code}:x));Alert.alert('تم تعديل الكود',`${s.name}\nالكود الجديد: ${code}`)};
+ const logout=async()=>{await clearSession();router.replace('/');};
+ const honor=honors.filter(x=>x.grade===grade&&(!p.view||p.view==='honor')&&(!x.subject||x.subject===undefined));
+ if(teacher&&p.view==='honor') return <PageLike title={`لوحة الشرف • ${grade}`} onBack={()=>router.back()}><TextInput placeholder="اسم الطالب" value={newName} onChangeText={setNewName} style={styles.input} textAlign="right"/><TextInput placeholder="الدرجة" keyboardType="numeric" value={''} style={styles.input} textAlign="right"/><Pressable style={styles.primary} onPress={()=>Alert.alert('الترتيب التلقائي','سيتم حساب المراكز 1 و2 و3 تلقائيًا من الواجبات والاختبارات بعد تفعيل المزامنة السحابية.') }><Text style={styles.primaryText}>🏆 تحديث الترتيب تلقائيًا</Text></Pressable>{honor.length?honor.sort((a,b)=>a.position-b.position).map(x=><View key={`${x.name}-${x.position}`} style={styles.card}><Text style={styles.rank}>{x.position===1?'🥇':x.position===2?'🥈':'🥉'} {x.name}</Text><Text style={styles.note}>الدرجة: {x.score}</Text></View>):<View style={styles.card}><Text style={styles.note}>لا توجد نتائج منشورة بعد.</Text></View>}</PageLike>;
+ return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.container}><Pressable onPress={()=>router.back()}><Text style={styles.back}>رجوع ›</Text></Pressable><Text style={styles.title}>{teacher?`إدارة ${grade}`:'الملف الشخصي'}</Text>
+ {teacher&&<><View style={styles.card}><Text style={styles.heading}>👥 الطلاب والأكواد</Text><TextInput placeholder="اسم الطالب الجديد" value={newName} onChangeText={setNewName} style={styles.input} textAlign="right"/><Pressable style={styles.primary} onPress={addStudent}><Text style={styles.primaryText}>＋ توليد كود تسجيل</Text></Pressable>{students.filter(s=>s.grade===grade).map(s=><View key={s.id} style={styles.student}><View style={{flex:1}}><Text style={styles.studentName}>{s.name}</Text><Text style={styles.note}>الكود: {s.code} • {s.active?'نشط':'موقوف'}</Text></View><Pressable onPress={()=>editCode(s)}><Text style={styles.action}>تعديل</Text></Pressable><Pressable onPress={()=>toggle(s)}><Text style={styles.action}>{s.active?'إيقاف':'تفعيل'}</Text></Pressable><Pressable onPress={()=>remove(s)}><Text style={styles.danger}>حذف</Text></Pressable></View>)}</View><View style={styles.card}><Text style={styles.heading}>🏆 الطلاب الأوائل في المستوى</Text><Pressable style={styles.secondary} onPress={()=>router.push({pathname:'/profile',params:{...p,view:'honor',stage:grade}})}><Text style={styles.secondaryText}>فتح لوحة الشرف</Text></Pressable></View></>}
+ {!teacher&&<View style={styles.card}><Text style={styles.avatar}>👤</Text><Text style={styles.studentName}>{p.name||'الطالب'}</Text><Text style={styles.note}>المستوى: {grade}</Text></View>}
+ <Pressable style={styles.logout} onPress={logout}><Text style={styles.logoutText}>تسجيل الخروج</Text></Pressable></ScrollView></SafeAreaView>;
 }
-const styles = StyleSheet.create({safe:{flex:1,backgroundColor:'#f4f7fb'},container:{padding:20},back:{color:'#356ae6',fontWeight:'800',marginBottom:18,textAlign:'right'},title:{fontSize:27,fontWeight:'900',color:'#14213d',textAlign:'right',marginBottom:20},card:{backgroundColor:'#fff',borderRadius:22,padding:28,alignItems:'center',elevation:2},avatar:{fontSize:50},name:{fontSize:20,fontWeight:'900',color:'#14213d',marginTop:10},note:{color:'#667085',textAlign:'center',lineHeight:24,marginTop:10}});
+function PageLike({title,onBack,children}:{title:string;onBack:()=>void;children:any}){return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.container}><Pressable onPress={onBack}><Text style={styles.back}>رجوع ›</Text></Pressable><Text style={styles.title}>{title}</Text>{children}</ScrollView></SafeAreaView>}
+const styles=StyleSheet.create({safe:{flex:1,backgroundColor:'#f4f7fb'},container:{padding:20,paddingBottom:45},back:{color:'#356ae6',fontWeight:'800',marginBottom:16,textAlign:'right'},title:{fontSize:27,fontWeight:'900',color:'#14213d',textAlign:'right',marginBottom:16},card:{backgroundColor:'#fff',borderRadius:20,padding:17,marginBottom:12,borderWidth:1,borderColor:'#eaecf0'},heading:{fontSize:18,fontWeight:'900',color:'#14213d',textAlign:'right',marginBottom:10},input:{borderWidth:1,borderColor:'#d0d5dd',borderRadius:12,padding:12,color:'#101828',backgroundColor:'#fff',marginBottom:8},primary:{backgroundColor:'#17324d',borderRadius:12,padding:13,alignItems:'center',marginBottom:10},primaryText:{color:'#fff',fontWeight:'900'},secondary:{borderWidth:1,borderColor:'#d0d5dd',borderRadius:12,padding:12,alignItems:'center'},secondaryText:{color:'#17324d',fontWeight:'900'},student:{borderTopWidth:1,borderTopColor:'#eaecf0',paddingVertical:12,flexDirection:'row-reverse',alignItems:'center',gap:8},studentName:{fontSize:16,fontWeight:'900',color:'#14213d',textAlign:'right'},note:{color:'#667085',fontSize:12,textAlign:'right',marginTop:3},action:{color:'#356ae6',fontWeight:'800',fontSize:11},danger:{color:'#d92d20',fontWeight:'800',fontSize:11},rank:{fontSize:18,fontWeight:'900',color:'#14213d',textAlign:'right'},avatar:{fontSize:50,textAlign:'center'},logout:{padding:15,alignItems:'center'},logoutText:{color:'#d92d20',fontWeight:'900'}});
