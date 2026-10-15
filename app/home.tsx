@@ -1,6 +1,9 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
+import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { subjects, grades } from '../src/data';
+import { getCloudStudent } from '../src/cloud';
+import { clearSession, getSession } from '../src/storage';
 
 const teacherTools = [
   { key:'students', icon:'👥', title:'إدارة الصف', note:'الأسماء وأكواد التسجيل', route:'/profile' },
@@ -21,6 +24,18 @@ export default function HomeScreen() {
   const role = p.role === 'teacher' ? 'teacher' : 'student';
   const grade = (p.grade || grades[0]) as string;
   const name = p.name || (role==='teacher' ? 'المعلم' : 'الطالب');
+  useFocusEffect(useCallback(()=>{
+    let cancelled=false;
+    if(role==='student' && p.code){
+      getCloudStudent(p.code).then(student=>{
+        if(cancelled)return;
+        if(!student || !student.active){
+          clearSession().then(()=>{Alert.alert('تم إيقاف الحساب','تم إيقاف هذا الطالب من قبل المعلم.');router.replace('/')});
+        }
+      }).catch(()=>{ /* إبقاء الجلسة عند انقطاع الإنترنت */ });
+    }
+    return ()=>{cancelled=true};
+  },[role,p.code]));
   const go = (route:string, extra:any={}) => router.push({ pathname: route as never, params:{ role,name,grade,code:p.code,...extra } });
   const subject = (s:string) => go('/books',{subject:s});
   if (role === 'teacher' && !p.stage) return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content}>
